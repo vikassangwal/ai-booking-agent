@@ -24,6 +24,7 @@ app.use(express.static('public'));
 // ----------------------------------------------------
 const pendingMessages = {}; // Stores messages from Admin to User: { sessionId: ["msg1", "msg2"] }
 let currentActiveUser = null; // Tracks the current user the Admin is talking to
+let lastActiveSessionId = null; // Fallback to route admin messages when server restarts
 
 function sendTelegramMessage(text) {
     const token = process.env.TELEGRAM_BOT_TOKEN;
@@ -75,6 +76,11 @@ app.post('/telegram-webhook', (req, res) => {
                 sendTelegramMessage("⚠️ No active user session to end.");
             }
             return res.sendStatus(200);
+        }
+
+        if (!currentActiveUser && lastActiveSessionId) {
+            currentActiveUser = lastActiveSessionId;
+            console.log(`💡 [Live Chat] Restored active user session dynamically: ${currentActiveUser}`);
         }
 
         if (currentActiveUser) {
@@ -244,6 +250,7 @@ app.post('/api/chat', async (req, res) => {
         if (!text) return res.status(400).json({ error: "Text is required" });
 
         const currentSessionId = sessionId || uuid.v4();
+        lastActiveSessionId = currentSessionId; // Capture the active session ID dynamically
         let messages = [];
 
         // If already in a Live Chat with the Admin, just forward message to Telegram and bypass Gemini
