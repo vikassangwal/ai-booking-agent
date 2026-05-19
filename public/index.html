@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Appointment Chat Widget</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        .typing-dot {
+            animation: bounce 1.4s infinite ease-in-out both;
+        }
+        .typing-dot:nth-child(1) { animation-delay: -0.32s; }
+        .typing-dot:nth-child(2) { animation-delay: -0.16s; }
+        @keyframes bounce {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1); }
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen font-sans">
+    
+    <button id="openWidgetBtn" class="fixed bottom-6 right-6 h-14 w-14 bg-slate-900 text-white rounded-full flex items-center justify-center shadow-2xl hover:bg-slate-800 transition-all hover:scale-105 active:scale-95 hidden z-50">
+        <i data-lucide="bot" class="w-7 h-7"></i>
+    </button>
+
+    <div id="chatWidget" class="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 w-[calc(100vw-2rem)] sm:w-[400px] h-[600px] max-h-[calc(100vh-2rem)] bg-gray-50 flex flex-col rounded-2xl shadow-2xl overflow-hidden border border-gray-200 transition-all duration-300 z-50">
+        
+        <div class="bg-white px-6 py-4 flex items-center justify-between border-b border-gray-100 shadow-sm z-10">
+            <div class="flex items-center gap-3">
+                <div class="relative">
+                    <div class="h-10 w-10 bg-slate-900 rounded-full flex items-center justify-center text-white shadow-md">
+                        <i data-lucide="bot" class="w-5 h-5"></i>
+                    </div>
+                    <span class="absolute bottom-0 right-0 h-3 w-3 bg-emerald-500 border-2 border-white rounded-full"></span>
+                </div>
+                <div>
+                    <h2 id="assistantName" class="text-sm font-semibold text-slate-900">Premium Booking Assistant</h2>
+                    <p class="text-xs text-emerald-600 font-medium flex items-center gap-1">
+                        <span class="relative flex h-2 w-2">
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                            <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                        </span>
+                        <span id="onlineStatusText">Online</span>
+                    </p>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-3">
+                <select id="langSelect" class="text-xs font-medium text-slate-700 bg-gray-100 border border-gray-200 rounded-md px-2 py-1 outline-none cursor-pointer hover:bg-gray-200 transition-colors">
+                    <option value="en">English</option>
+                    <option value="hi">हिंदी</option>
+                    <option value="es">Español</option>
+                    <option value="fr">Français</option>
+                </select>
+
+                <button id="closeWidgetBtn" class="text-gray-400 hover:text-slate-800 transition-colors p-2 hover:bg-gray-100 rounded-full">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+        </div>
+
+        <div id="chatArea" class="flex-1 overflow-y-auto p-6 space-y-6 bg-gray-50/50 custom-scrollbar">
+            <div class="text-center" id="todayBadgeContainer">
+                <span id="todayBadge" class="text-xs text-gray-400 font-medium px-3 py-1 bg-gray-100 rounded-full">Today</span>
+            </div>
+        </div>
+
+        <div id="typingIndicator" class="px-6 pb-2 hidden">
+            <div class="flex items-start gap-2 max-w-[85%]">
+                <div class="h-8 w-8 bg-white border border-gray-100 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm mt-auto">
+                    <i data-lucide="bot" class="w-4 h-4 text-slate-700"></i>
+                </div>
+                <div class="bg-white px-4 py-4 rounded-t-2xl rounded-br-2xl rounded-bl-sm border border-gray-100 shadow-sm flex items-center gap-1">
+                    <span class="h-1.5 w-1.5 bg-gray-400 rounded-full typing-dot"></span>
+                    <span class="h-1.5 w-1.5 bg-gray-400 rounded-full typing-dot"></span>
+                    <span class="h-1.5 w-1.5 bg-gray-400 rounded-full typing-dot"></span>
+                </div>
+            </div>
+        </div>
+
+        <div class="p-4 bg-white border-t border-gray-100">
+            <form id="chatForm" class="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-full px-2 py-2 focus-within:ring-2 focus-within:ring-slate-900/20 focus-within:border-slate-900 transition-all">
+                <input
+                    type="text"
+                    id="chatInput"
+                    placeholder="Type your message..."
+                    class="flex-1 bg-transparent border-none outline-none px-4 text-sm text-slate-800 placeholder-gray-400"
+                    autocomplete="off"
+                />
+                <button
+                    type="submit"
+                    id="sendBtn"
+                    disabled
+                    class="h-10 w-10 flex items-center justify-center bg-slate-900 text-white rounded-full hover:bg-slate-800 disabled:opacity-50 disabled:hover:bg-slate-900 transition-colors shadow-sm shrink-0"
+                >
+                    <i data-lucide="send" class="w-4 h-4 ml-0.5"></i>
+                </button>
+            </form>
+            <div class="text-center mt-3">
+                <p class="text-[10px] text-gray-400 flex items-center justify-center gap-1">
+                    <span id="protectedText">Secured by Advanced AI</span> <i data-lucide="check-circle-2" class="w-3 h-3"></i>
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        lucide.createIcons();
+
+        const translations = {
+            en: { assistantName: "Premium Booking Assistant", online: "Online", today: "Today", placeholder: "Type your message...", protectedBy: "Secured by Advanced AI", availableTomorrow: "Available Time Slots", bookPrefix: "I would like to book", payButton: "💳 Pay & Book Now", paymentDisclaimer: "Thank you for your interest! Please note that this payment gateway is currently in demonstration mode. When you commission a custom chatbot from us, we will seamlessly integrate your own live payment system (such as Razorpay, Stripe, etc.) tailored precisely to your business needs." },
+            hi: { assistantName: "प्रीमियम बुकिंग सहायक", online: "ऑनलाइन", today: "आज", placeholder: "अपना संदेश यहाँ लिखें...", protectedBy: "उन्नत AI द्वारा सुरक्षित", availableTomorrow: "उपलब्ध समय (Time Slots)", bookPrefix: "मैं बुक करना चाहूँगा:", payButton: "💳 अभी भुगतान करें (Pay Now)", paymentDisclaimer: "आपकी रुचि के लिए बहुत-बहुत धन्यवाद! कृपया ध्यान दें कि यह एक डेमो वर्ज़न है और पेमेंट सिस्टम अभी मेंटेनेंस में है। जब आप हमारी टीम से अपना कस्टम चैटबॉट बनवाएंगे, तो हम आपके व्यवसाय के अनुसार आपका खुद का पेमेंट सिस्टम (जैसे Razorpay, Stripe) सुरक्षित और शानदार तरीके से इंटीग्रेट करके देंगे।" },
+            es: { assistantName: "Asistente de Reservas", online: "En línea", today: "Hoy", placeholder: "Escriba su mensaje...", protectedBy: "Protegido por IA", availableTomorrow: "Horarios Disponibles", bookPrefix: "Me gustaría reservar a las", payButton: "💳 Pagar y Reservar Ahora", paymentDisclaimer: "¡Agradecemos su interés! Tenga en cuenta que esta pasarela de pago se encuentra actualmente en modo de demostración. Cuando encargue un chatbot personalizado, integraremos su propio sistema de pago en vivo." },
+            fr: { assistantName: "Assistant de Réservation", online: "En ligne", today: "Aujourd'hui", placeholder: "Tapez votre message...", protectedBy: "Sécurisé par l'IA", availableTomorrow: "Créneaux Disponibles", bookPrefix: "Je voudrais réserver à", payButton: "💳 Payer et Réserver", paymentDisclaimer: "Nous vous remercions de votre intérêt ! Cette passerelle est en mode démo. Lorsque vous commanderez un chatbot, nous intégrerons votre propre système de paiement." }
+        };
+
+        let currentLang = 'en';
+        const sessionId = Math.random().toString(36).substring(7);
+
+        const openWidgetBtn = document.getElementById('openWidgetBtn');
+        const chatWidget = document.getElementById('chatWidget');
+        const closeWidgetBtn = document.getElementById('closeWidgetBtn');
+        const chatArea = document.getElementById('chatArea');
+        const chatForm = document.getElementById('chatForm');
+        const chatInput = document.getElementById('chatInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const typingIndicator = document.getElementById('typingIndicator');
+        const langSelect = document.getElementById('langSelect');
+
+        openWidgetBtn.addEventListener('click', () => { chatWidget.classList.remove('hidden'); openWidgetBtn.classList.add('hidden'); });
+        closeWidgetBtn.addEventListener('click', () => { chatWidget.classList.add('hidden'); openWidgetBtn.classList.remove('hidden'); });
+        chatInput.addEventListener('input', (e) => { sendBtn.disabled = !e.target.value.trim(); });
+
+        langSelect.addEventListener('change', (e) => {
+            currentLang = e.target.value;
+            const t = translations[currentLang];
+            document.getElementById('assistantName').textContent = t.assistantName;
+            document.getElementById('onlineStatusText').textContent = t.online;
+            document.getElementById('chatInput').placeholder = t.placeholder;
+            document.getElementById('protectedText').textContent = t.protectedBy;
+            document.getElementById('todayBadge').textContent = t.today;
+            
+            // Re-greet the user in the new language to restart context
+            sendToDialogflow(`Greetings in ${currentLang}`);
+        });
+
+        function getTimestamp() { return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); }
+        function scrollToBottom() { chatArea.scrollTop = chatArea.scrollHeight; }
+
+        function createTimeSlotsCard(slots) {
+            const t = translations[currentLang];
+            if(!slots || slots.length === 0) return `<div class="ml-10 mt-2 p-4 bg-white rounded-xl text-sm">No slots available.</div>`;
+            const slotsHtml = slots.map(time => `
+                <button onclick="handleTimeSlotSelect('${time}')" class="px-3 py-2 text-sm text-slate-700 bg-gray-50 border border-gray-200 rounded-lg hover:bg-slate-900 hover:text-white hover:border-slate-900 transition-all duration-200 font-medium active:scale-95 flex items-center justify-between group">
+                    ${time}
+                    <i data-lucide="chevron-right" class="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity"></i>
+                </button>
+            `).join('');
+
+            return `
+                <div class="ml-10 mt-2 p-4 bg-white rounded-xl border border-gray-100 shadow-sm w-[85%]">
+                    <div class="flex items-center gap-2 mb-3 text-slate-800 font-medium text-sm">
+                        <i data-lucide="clock" class="w-4 h-4 text-slate-500"></i>
+                        <span>${t.availableTomorrow}</span>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        ${slotsHtml}
+                    </div>
+                </div>
+            `;
+        }
+
+        function createDateTimePickerCard() {
+            const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+            const hours = ["09:00 AM", "10:00 AM", "11:00 AM", "12:00 PM", "01:00 PM", "02:00 PM", "03:00 PM", "04:00 PM", "05:00 PM"];
+            
+            const monthOptions = months.map((m, idx) => `<option value="${idx + 1}">${m}</option>`).join('');
+            const dayOptions = Array.from({length: 31}, (_, i) => `<option value="${i+1}">${i+1}</option>`).join('');
+            const yearOptions = `<option value="2026">2026</option><option value="2027">2027</option>`;
+            const hourOptions = hours.map(h => `<option value="${h}">${h}</option>`).join('');
+
+            return `
+                <div class="ml-10 mt-2 p-4 bg-white rounded-xl border border-gray-100 shadow-sm w-[85%]">
+                    <div class="flex items-center gap-2 mb-3 text-slate-800 font-medium text-xs">
+                        <i data-lucide="calendar" class="w-4 h-4 text-slate-500"></i>
+                        <span>📅 Select Date & Time (अपॉइंटमेंट की तारीख और समय चुनें)</span>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2 mb-3">
+                        <div>
+                            <label class="block text-[9px] text-gray-400 mb-0.5">Month</label>
+                            <select id="selectMonth" class="w-full p-2 text-xs bg-gray-50 border border-gray-200 rounded-lg text-slate-700 font-medium focus:ring-1 focus:ring-slate-900 outline-none">
+                                ${monthOptions}
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-[9px] text-gray-400 mb-0.5">Day</label>
+                            <select id="selectDay" class="w-full p-2 text-xs bg-gray-50 border border-gray-200 rounded-lg text-slate-700 font-medium focus:ring-1 focus:ring-slate-900 outline-none">
+                                ${dayOptions}
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-[9px] text-gray-400 mb-0.5">Year</label>
+                            <select id="selectYear" class="w-full p-2 text-xs bg-gray-50 border border-gray-200 rounded-lg text-slate-700 font-medium focus:ring-1 focus:ring-slate-900 outline-none">
+                                ${yearOptions}
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-[9px] text-gray-400 mb-0.5">Time</label>
+                            <select id="selectTime" class="w-full p-2 text-xs bg-gray-50 border border-gray-200 rounded-lg text-slate-700 font-medium focus:ring-1 focus:ring-slate-900 outline-none">
+                                ${hourOptions}
+                            </select>
+                        </div>
+                    </div>
+                    <button onclick="handleDateTimePickerSubmit()" class="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-lg shadow-sm transition-all active:scale-95 flex items-center justify-center gap-1.5">
+                        Confirm Slot (स्लॉट कन्फर्म करें)
+                    </button>
+                </div>
+            `;
+        }
+
+        window.handleDateTimePickerSubmit = () => {
+            const month = document.getElementById('selectMonth').value;
+            const day = document.getElementById('selectDay').value;
+            const year = document.getElementById('selectYear').value;
+            const time = document.getElementById('selectTime').value;
+            
+            const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+            const monthName = months[parseInt(month) - 1];
+            
+            const userMsg = `${day} ${monthName} ${year} at ${time}`;
+            addMessage(userMsg, 'user');
+            
+            const pad = (n) => n.toString().padStart(2, '0');
+            const formattedDate = `${year}-${pad(month)}-${pad(day)}`;
+            
+            sendToDialogflow(`I would like to book for date: ${formattedDate} and time: ${time}`);
+        };
+
+        function createPaymentButton() {
+            const t = translations[currentLang];
+            return `
+                <div class="ml-10 mt-2 w-[85%] flex flex-col gap-2">
+                    <button onclick="handlePaymentClick()" class="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl shadow-md transition-all active:scale-95 flex items-center justify-center gap-2">
+                        💳 Pay & Book Online (ऑनलाइन पेमेंट करें)
+                    </button>
+                    <button onclick="handleOfflineBookingClick()" class="w-full py-3 bg-slate-700 hover:bg-slate-800 text-white text-xs font-semibold rounded-xl shadow-md transition-all active:scale-95 flex items-center justify-center gap-2">
+                        🏨 Book & Pay Offline (ऑफ़लाइन बुक करें)
+                    </button>
+                </div>
+            `;
+        }
+
+        window.handlePaymentClick = () => {
+            const t = translations[currentLang];
+            addMessage(t.payButton, 'user');
+            typingIndicator.classList.remove('hidden');
+            scrollToBottom();
+            setTimeout(() => {
+                typingIndicator.classList.add('hidden');
+                addMessage(t.paymentDisclaimer, 'ai');
+            }, 1000);
+        };
+
+        window.handleOfflineBookingClick = () => {
+            addMessage("🏨 Book & Pay Offline (ऑफ़लाइन बुक करें)", 'user');
+            typingIndicator.classList.remove('hidden');
+            scrollToBottom();
+            setTimeout(() => {
+                typingIndicator.classList.add('hidden');
+                addMessage("🎉 *Congratulations!* Your appointment has been successfully booked offline. You can easily make the payment at the venue. Thank you!", 'ai');
+            }, 1000);
+        };
+
+        window.handleTimeSlotSelect = (time) => {
+            const t = translations[currentLang];
+            const msg = `${t.bookPrefix} ${time}`;
+            addMessage(msg, 'user');
+            sendToDialogflow(msg);
+        };
+
+        function addMessage(text, sender, type = 'text', data = null) {
+            let showPicker = false;
+            if (sender === 'ai' && text.includes('[SHOW_DATE_TIME_PICKER]')) {
+                showPicker = true;
+                text = text.replace('[SHOW_DATE_TIME_PICKER]', '').trim();
+            }
+
+            const wrapper = document.createElement('div');
+            wrapper.className = `message-bubble flex flex-col ${sender === 'user' ? 'items-end' : 'items-start'} gap-1 mb-6`;
+            
+            let html = `<div class="flex items-end gap-2 max-w-[85%] ${sender === 'user' ? 'flex-row-reverse' : 'flex-row'}">`;
+            if (sender === 'ai') html += `<div class="h-8 w-8 bg-white border border-gray-100 rounded-full flex items-center justify-center flex-shrink-0 mb-1 shadow-sm"><i data-lucide="bot" class="w-4 h-4 text-slate-700"></i></div>`;
+            
+            html += `<div class="px-4 py-3 text-sm shadow-sm ${sender === 'user' ? 'bg-slate-900 text-white rounded-t-2xl rounded-bl-2xl rounded-br-sm' : 'bg-white text-slate-800 rounded-t-2xl rounded-br-2xl rounded-bl-sm border border-gray-100'}"><p class="leading-relaxed">${text}</p></div></div><span class="text-[10px] text-gray-400 px-10">${getTimestamp()}</span>`;
+
+            if (type === 'slots' && sender === 'ai') html += createTimeSlotsCard(data);
+            else if (type === 'payment' && sender === 'ai') html += createPaymentButton();
+
+            if (showPicker) html += createDateTimePickerCard();
+
+            wrapper.innerHTML = html;
+            chatArea.appendChild(wrapper);
+            lucide.createIcons({ root: wrapper });
+            scrollToBottom();
+        }
+
+        async function sendToDialogflow(text) {
+            typingIndicator.classList.remove('hidden');
+            scrollToBottom();
+
+            try {
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        text: text, 
+                        sessionId: sessionId,
+                        languageCode: currentLang === 'hi' ? 'hi' : currentLang === 'es' ? 'es' : currentLang === 'fr' ? 'fr' : 'en-US'
+                    })
+                });
+                
+                const data = await response.json();
+                typingIndicator.classList.add('hidden');
+                
+                if (data.messages && data.messages.length > 0) {
+                    data.messages.forEach(msg => {
+                        if (msg.type === 'text') {
+                            addMessage(msg.text, 'ai');
+                        } else if (msg.type === 'payload') {
+                            const action = msg.data.action;
+                            if (action === "RENDER_TIME_SLOTS") {
+                                addMessage("Please select a time slot:", 'ai', 'slots', msg.data.slots || []);
+                            } else if (action === "RENDER_PAYMENT_BUTTON") {
+                                addMessage("Proceed to payment:", 'ai', 'payment');
+                            }
+                        }
+                    });
+                } else if (data.reply) {
+                    addMessage(data.reply, 'ai');
+                } else {
+                    addMessage("I didn't quite get that. Could you try again?", 'ai');
+                }
+            } catch (error) {
+                console.error("API Error:", error);
+                typingIndicator.classList.add('hidden');
+                addMessage("Sorry, I am unable to connect to the server right now.", 'ai');
+            }
+        }
+
+        chatForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const text = chatInput.value.trim();
+            if (!text) return;
+
+            addMessage(text, 'user');
+            chatInput.value = '';
+            sendBtn.disabled = true;
+            sendToDialogflow(text);
+        });
+
+        // Trigger initial greeting on load
+        setTimeout(() => {
+            sendToDialogflow('hello');
+        }, 500);
+
+        // Long Polling for Human Handoff (Live Chat) messages
+        setInterval(async () => {
+            try {
+                const response = await fetch(`/api/poll?sessionId=${sessionId}`);
+                const data = await response.json();
+                if (data.messages && data.messages.length > 0) {
+                    data.messages.forEach(msg => {
+                        addMessage(msg, 'ai');
+                    });
+                }
+            } catch (e) {
+                // Ignore network errors during polling
+            }
+        }, 3000);
+
+    </script>
+</body>
+</html>
