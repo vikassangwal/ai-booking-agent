@@ -604,8 +604,22 @@ app.post('/webhook', async (req, res) => {
 
 app.get('/setup', async (req, res) => {
     const token = process.env.TELEGRAM_BOT_TOKEN;
-    if (!token) return res.send("Error: TELEGRAM_BOT_TOKEN not found in .env");
+    if (!token) return res.send("Error: TELEGRAM_BOT_TOKEN not found in environment variables");
     
+    const host = req.get('host');
+    
+    // If hosted online (like Render.com), we can directly set the webhook using the host header!
+    if (!host.includes('localhost') && !host.includes('127.0.0.1')) {
+        const webhookUrl = `https://${host}/telegram-webhook`;
+        console.log(`🌐 [Render Setup] Linking Telegram Webhook directly to: ${webhookUrl}`);
+        
+        https.get(`https://api.telegram.org/bot${token}/setWebhook?url=${webhookUrl}`, whRes => {
+            res.send(`<h1>✅ Success!</h1><p>Telegram Webhook has been permanently linked to your Render URL: <b>${webhookUrl}</b></p><p>You can now chat from Telegram and it will appear on your website!</p>`);
+        });
+        return;
+    }
+
+    // Otherwise, fall back to Ngrok logic for localhost development
     try {
         const http = require('http');
         const ngrokRes = await new Promise((resolve, reject) => {
