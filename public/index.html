@@ -121,7 +121,13 @@
         };
 
         let currentLang = 'en';
-        const sessionId = Math.random().toString(36).substring(7);
+        
+        // Persist session ID to survive page refreshes during live testing!
+        let sessionId = localStorage.getItem('chat_session_id');
+        if (!sessionId) {
+            sessionId = Math.random().toString(36).substring(7);
+            localStorage.setItem('chat_session_id', sessionId);
+        }
 
         const openWidgetBtn = document.getElementById('openWidgetBtn');
         const chatWidget = document.getElementById('chatWidget');
